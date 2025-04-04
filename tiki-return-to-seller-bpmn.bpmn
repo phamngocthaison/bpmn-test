@@ -1,0 +1,678 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+                  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" 
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" 
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" 
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI" 
+                  id="Definitions_0nwg9dj" 
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:collaboration id="Collaboration_1mkpx67">
+    <bpmn:participant id="Participant_0o6isgp" name="Quy trình trả hàng cho Seller" processRef="Process_1qfhukv" />
+  </bpmn:collaboration>
+  
+  <bpmn:process id="Process_1qfhukv" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_0xrwpf9">
+      <bpmn:lane id="Lane_Customer" name="Khách hàng">
+        <bpmn:flowNodeRef>StartEvent_CustomerReturn</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_RequestReturn</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_PackReturnItems</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_HandOverToDelivery</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_TikiSystem" name="Hệ thống Tiki">
+        <bpmn:flowNodeRef>StartEvent_FailedQC</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>StartEvent_ExpiredItems</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_MergeReturnSources</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ValidateReturnRequest</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_ReturnValid</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_NotifyRejection</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_GenerateReturnCode</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_NotifySellerReturn</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_UpdateInventory</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ProcessRefund</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_ReturnComplete</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_TikiWarehouse" name="Kho Tiki">
+        <bpmn:flowNodeRef>Task_ReceiveReturnFromCustomer</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_InspectReturnItems</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_InspectionResult</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ReportDamagedItems</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_PrepareItemsForReturn</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_DocumentReturnItems</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Logistics" name="Vận chuyển">
+        <bpmn:flowNodeRef>Task_PickUpFromCustomer</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_DeliverToWarehouse</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_PickUpFromWarehouse</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_DeliverToSeller</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Seller" name="Seller">
+        <bpmn:flowNodeRef>Task_ReceiveReturnItems</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_ReturnItemsCondition</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_DisputeReturn</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_AcceptReturn</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ProcessDispute</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_SellerConfirmed</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    
+    <!-- Start Events -->
+    <bpmn:startEvent id="StartEvent_CustomerReturn" name="Yêu cầu trả hàng từ khách hàng">
+      <bpmn:outgoing>Flow_CustomerToRequest</bpmn:outgoing>
+    </bpmn:startEvent>
+    
+    <bpmn:startEvent id="StartEvent_FailedQC" name="Hàng không đạt kiểm tra chất lượng">
+      <bpmn:outgoing>Flow_FailedQCToMerge</bpmn:outgoing>
+    </bpmn:startEvent>
+    
+    <bpmn:startEvent id="StartEvent_ExpiredItems" name="Hàng hết hạn/lỗi trong kho">
+      <bpmn:outgoing>Flow_ExpiredToMerge</bpmn:outgoing>
+    </bpmn:startEvent>
+    
+    <!-- Customer Lane Tasks -->
+    <bpmn:task id="Task_RequestReturn" name="Tạo yêu cầu trả hàng">
+      <bpmn:incoming>Flow_CustomerToRequest</bpmn:incoming>
+      <bpmn:outgoing>Flow_RequestToValidate</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:task id="Task_PackReturnItems" name="Đóng gói hàng trả">
+      <bpmn:incoming>Flow_GenerateCodeToPack</bpmn:incoming>
+      <bpmn:outgoing>Flow_PackToHandOver</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:task id="Task_HandOverToDelivery" name="Bàn giao cho đơn vị vận chuyển">
+      <bpmn:incoming>Flow_PackToHandOver</bpmn:incoming>
+      <bpmn:outgoing>Flow_HandOverToPickUp</bpmn:outgoing>
+    </bpmn:task>
+    
+    <!-- Tiki System Lane Tasks -->
+    <bpmn:exclusiveGateway id="Gateway_MergeReturnSources" name="Phân loại nguồn trả hàng">
+      <bpmn:incoming>Flow_FailedQCToMerge</bpmn:incoming>
+      <bpmn:incoming>Flow_ExpiredToMerge</bpmn:incoming>
+      <bpmn:outgoing>Flow_MergeToNotify</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    
+    <bpmn:task id="Task_ValidateReturnRequest" name="Xác nhận yêu cầu trả hàng">
+      <bpmn:incoming>Flow_RequestToValidate</bpmn:incoming>
+      <bpmn:outgoing>Flow_ValidateToGateway</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:exclusiveGateway id="Gateway_ReturnValid" name="Yêu cầu hợp lệ?">
+      <bpmn:incoming>Flow_ValidateToGateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_ValidToGenerate</bpmn:outgoing>
+      <bpmn:outgoing>Flow_InvalidToReject</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    
+    <bpmn:task id="Task_NotifyRejection" name="Thông báo từ chối">
+      <bpmn:incoming>Flow_InvalidToReject</bpmn:incoming>
+    </bpmn:task>
+    
+    <bpmn:task id="Task_GenerateReturnCode" name="Tạo mã trả hàng">
+      <bpmn:incoming>Flow_ValidToGenerate</bpmn:incoming>
+      <bpmn:outgoing>Flow_GenerateCodeToPack</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:task id="Task_NotifySellerReturn" name="Thông báo seller về hàng trả">
+      <bpmn:incoming>Flow_MergeToNotify</bpmn:incoming>
+      <bpmn:incoming>Flow_DocumentToNotify</bpmn:incoming>
+      <bpmn:outgoing>Flow_NotifyToPrepare</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:task id="Task_UpdateInventory" name="Cập nhật tồn kho">
+      <bpmn:incoming>Flow_AcceptToUpdate</bpmn:incoming>
+      <bpmn:incoming>Flow_ProcessDisputeToUpdate</bpmn:incoming>
+      <bpmn:outgoing>Flow_UpdateToRefund</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:task id="Task_ProcessRefund" name="Xử lý hoàn tiền (nếu có)">
+      <bpmn:incoming>Flow_UpdateToRefund</bpmn:incoming>
+      <bpmn:outgoing>Flow_RefundToComplete</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:endEvent id="EndEvent_ReturnComplete" name="Hoàn tất quy trình">
+      <bpmn:incoming>Flow_RefundToComplete</bpmn:incoming>
+    </bpmn:endEvent>
+    
+    <!-- Warehouse Lane Tasks -->
+    <bpmn:task id="Task_ReceiveReturnFromCustomer" name="Tiếp nhận hàng trả từ khách">
+      <bpmn:incoming>Flow_DeliverToReceive</bpmn:incoming>
+      <bpmn:outgoing>Flow_ReceiveToInspect</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:task id="Task_InspectReturnItems" name="Kiểm tra hàng trả">
+      <bpmn:incoming>Flow_ReceiveToInspect</bpmn:incoming>
+      <bpmn:outgoing>Flow_InspectToGateway</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:exclusiveGateway id="Gateway_InspectionResult" name="Kết quả kiểm tra">
+      <bpmn:incoming>Flow_InspectToGateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_InspectionToReport</bpmn:outgoing>
+      <bpmn:outgoing>Flow_InspectionToDocument</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    
+    <bpmn:task id="Task_ReportDamagedItems" name="Báo cáo hàng bị hư hỏng">
+      <bpmn:incoming>Flow_InspectionToReport</bpmn:incoming>
+      <bpmn:outgoing>Flow_ReportToDocument</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:task id="Task_PrepareItemsForReturn" name="Chuẩn bị hàng để trả">
+      <bpmn:incoming>Flow_NotifyToPrepare</bpmn:incoming>
+      <bpmn:outgoing>Flow_PrepareToPickUp</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:task id="Task_DocumentReturnItems" name="Lập chứng từ trả hàng">
+      <bpmn:incoming>Flow_InspectionToDocument</bpmn:incoming>
+      <bpmn:incoming>Flow_ReportToDocument</bpmn:incoming>
+      <bpmn:outgoing>Flow_DocumentToNotify</bpmn:outgoing>
+    </bpmn:task>
+    
+    <!-- Logistics Lane Tasks -->
+    <bpmn:task id="Task_PickUpFromCustomer" name="Lấy hàng từ khách hàng">
+      <bpmn:incoming>Flow_HandOverToPickUp</bpmn:incoming>
+      <bpmn:outgoing>Flow_PickUpToDeliver</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:task id="Task_DeliverToWarehouse" name="Giao hàng đến kho Tiki">
+      <bpmn:incoming>Flow_PickUpToDeliver</bpmn:incoming>
+      <bpmn:outgoing>Flow_DeliverToReceive</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:task id="Task_PickUpFromWarehouse" name="Lấy hàng từ kho Tiki">
+      <bpmn:incoming>Flow_PrepareToPickUp</bpmn:incoming>
+      <bpmn:outgoing>Flow_PickUpToDeliverSeller</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:task id="Task_DeliverToSeller" name="Giao hàng đến seller">
+      <bpmn:incoming>Flow_PickUpToDeliverSeller</bpmn:incoming>
+      <bpmn:outgoing>Flow_DeliverToReceiveSeller</bpmn:outgoing>
+    </bpmn:task>
+    
+    <!-- Seller Lane Tasks -->
+    <bpmn:task id="Task_ReceiveReturnItems" name="Tiếp nhận hàng trả">
+      <bpmn:incoming>Flow_DeliverToReceiveSeller</bpmn:incoming>
+      <bpmn:outgoing>Flow_ReceiveToGateway</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:exclusiveGateway id="Gateway_ReturnItemsCondition" name="Tình trạng hàng?">
+      <bpmn:incoming>Flow_ReceiveToGateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_GatewayToAccept</bpmn:outgoing>
+      <bpmn:outgoing>Flow_GatewayToDispute</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    
+    <bpmn:task id="Task_DisputeReturn" name="Khiếu nại về hàng trả">
+      <bpmn:incoming>Flow_GatewayToDispute</bpmn:incoming>
+      <bpmn:outgoing>Flow_DisputeToProcess</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:task id="Task_AcceptReturn" name="Xác nhận chấp nhận hàng trả">
+      <bpmn:incoming>Flow_GatewayToAccept</bpmn:incoming>
+      <bpmn:outgoing>Flow_AcceptToUpdate</bpmn:outgoing>
+      <bpmn:outgoing>Flow_AcceptToConfirm</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:task id="Task_ProcessDispute" name="Xử lý khiếu nại">
+      <bpmn:incoming>Flow_DisputeToProcess</bpmn:incoming>
+      <bpmn:outgoing>Flow_ProcessDisputeToUpdate</bpmn:outgoing>
+      <bpmn:outgoing>Flow_ProcessDisputeToConfirm</bpmn:outgoing>
+    </bpmn:task>
+    
+    <bpmn:endEvent id="EndEvent_SellerConfirmed" name="Seller đã xác nhận">
+      <bpmn:incoming>Flow_AcceptToConfirm</bpmn:incoming>
+      <bpmn:incoming>Flow_ProcessDisputeToConfirm</bpmn:incoming>
+    </bpmn:endEvent>
+    
+    <!-- Sequence Flows -->
+    <bpmn:sequenceFlow id="Flow_CustomerToRequest" sourceRef="StartEvent_CustomerReturn" targetRef="Task_RequestReturn" />
+    <bpmn:sequenceFlow id="Flow_FailedQCToMerge" sourceRef="StartEvent_FailedQC" targetRef="Gateway_MergeReturnSources" />
+    <bpmn:sequenceFlow id="Flow_ExpiredToMerge" sourceRef="StartEvent_ExpiredItems" targetRef="Gateway_MergeReturnSources" />
+    <bpmn:sequenceFlow id="Flow_RequestToValidate" sourceRef="Task_RequestReturn" targetRef="Task_ValidateReturnRequest" />
+    <bpmn:sequenceFlow id="Flow_ValidateToGateway" sourceRef="Task_ValidateReturnRequest" targetRef="Gateway_ReturnValid" />
+    <bpmn:sequenceFlow id="Flow_ValidToGenerate" name="Có" sourceRef="Gateway_ReturnValid" targetRef="Task_GenerateReturnCode" />
+    <bpmn:sequenceFlow id="Flow_InvalidToReject" name="Không" sourceRef="Gateway_ReturnValid" targetRef="Task_NotifyRejection" />
+    <bpmn:sequenceFlow id="Flow_GenerateCodeToPack" sourceRef="Task_GenerateReturnCode" targetRef="Task_PackReturnItems" />
+    <bpmn:sequenceFlow id="Flow_PackToHandOver" sourceRef="Task_PackReturnItems" targetRef="Task_HandOverToDelivery" />
+    <bpmn:sequenceFlow id="Flow_HandOverToPickUp" sourceRef="Task_HandOverToDelivery" targetRef="Task_PickUpFromCustomer" />
+    <bpmn:sequenceFlow id="Flow_PickUpToDeliver" sourceRef="Task_PickUpFromCustomer" targetRef="Task_DeliverToWarehouse" />
+    <bpmn:sequenceFlow id="Flow_DeliverToReceive" sourceRef="Task_DeliverToWarehouse" targetRef="Task_ReceiveReturnFromCustomer" />
+    <bpmn:sequenceFlow id="Flow_ReceiveToInspect" sourceRef="Task_ReceiveReturnFromCustomer" targetRef="Task_InspectReturnItems" />
+    <bpmn:sequenceFlow id="Flow_InspectToGateway" sourceRef="Task_InspectReturnItems" targetRef="Gateway_InspectionResult" />
+    <bpmn:sequenceFlow id="Flow_InspectionToReport" name="Có vấn đề" sourceRef="Gateway_InspectionResult" targetRef="Task_ReportDamagedItems" />
+    <bpmn:sequenceFlow id="Flow_InspectionToDocument" name="OK" sourceRef="Gateway_InspectionResult" targetRef="Task_DocumentReturnItems" />
+    <bpmn:sequenceFlow id="Flow_ReportToDocument" sourceRef="Task_ReportDamagedItems" targetRef="Task_DocumentReturnItems" />
+    <bpmn:sequenceFlow id="Flow_DocumentToNotify" sourceRef="Task_DocumentReturnItems" targetRef="Task_NotifySellerReturn" />
+    <bpmn:sequenceFlow id="Flow_MergeToNotify" sourceRef="Gateway_MergeReturnSources" targetRef="Task_NotifySellerReturn" />
+    <bpmn:sequenceFlow id="Flow_NotifyToPrepare" sourceRef="Task_NotifySellerReturn" targetRef="Task_PrepareItemsForReturn" />
+    <bpmn:sequenceFlow id="Flow_PrepareToPickUp" sourceRef="Task_PrepareItemsForReturn" targetRef="Task_PickUpFromWarehouse" />
+    <bpmn:sequenceFlow id="Flow_PickUpToDeliverSeller" sourceRef="Task_PickUpFromWarehouse" targetRef="Task_DeliverToSeller" />
+    <bpmn:sequenceFlow id="Flow_DeliverToReceiveSeller" sourceRef="Task_DeliverToSeller" targetRef="Task_ReceiveReturnItems" />
+    <bpmn:sequenceFlow id="Flow_ReceiveToGateway" sourceRef="Task_ReceiveReturnItems" targetRef="Gateway_ReturnItemsCondition" />
+    <bpmn:sequenceFlow id="Flow_GatewayToAccept" name="Chấp nhận" sourceRef="Gateway_ReturnItemsCondition" targetRef="Task_AcceptReturn" />
+    <bpmn:sequenceFlow id="Flow_GatewayToDispute" name="Khiếu nại" sourceRef="Gateway_ReturnItemsCondition" targetRef="Task_DisputeReturn" />
+    <bpmn:sequenceFlow id="Flow_DisputeToProcess" sourceRef="Task_DisputeReturn" targetRef="Task_ProcessDispute" />
+    <bpmn:sequenceFlow id="Flow_AcceptToUpdate" sourceRef="Task_AcceptReturn" targetRef="Task_UpdateInventory" />
+    <bpmn:sequenceFlow id="Flow_AcceptToConfirm" sourceRef="Task_AcceptReturn" targetRef="EndEvent_SellerConfirmed" />
+    <bpmn:sequenceFlow id="Flow_ProcessDisputeToUpdate" sourceRef="Task_ProcessDispute" targetRef="Task_UpdateInventory" />
+    <bpmn:sequenceFlow id="Flow_ProcessDisputeToConfirm" sourceRef="Task_ProcessDispute" targetRef="EndEvent_SellerConfirmed" />
+    <bpmn:sequenceFlow id="Flow_UpdateToRefund" sourceRef="Task_UpdateInventory" targetRef="Task_ProcessRefund" />
+    <bpmn:sequenceFlow id="Flow_RefundToComplete" sourceRef="Task_ProcessRefund" targetRef="EndEvent_ReturnComplete" />
+  </bpmn:process>
+  
+  <!-- BPMNDI (Diagram Interchange) Information -->
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1mkpx67">
+      <bpmndi:BPMNShape id="Participant_0o6isgp_di" bpmnElement="Participant_0o6isgp" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="1430" height="810" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <!-- Lanes -->
+      <bpmndi:BPMNShape id="Lane_Customer_di" bpmnElement="Lane_Customer" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="1400" height="140" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_TikiSystem_di" bpmnElement="Lane_TikiSystem" isHorizontal="true">
+        <dc:Bounds x="190" y="220" width="1400" height="180" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_TikiWarehouse_di" bpmnElement="Lane_TikiWarehouse" isHorizontal="true">
+        <dc:Bounds x="190" y="400" width="1400" height="170" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Logistics_di" bpmnElement="Lane_Logistics" isHorizontal="true">
+        <dc:Bounds x="190" y="570" width="1400" height="160" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Seller_di" bpmnElement="Lane_Seller" isHorizontal="true">
+        <dc:Bounds x="190" y="730" width="1400" height="160" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <!-- Start Events -->
+      <bpmndi:BPMNShape id="StartEvent_CustomerReturn_di" bpmnElement="StartEvent_CustomerReturn">
+        <dc:Bounds x="232" y="132" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="210" y="175" width="80" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="StartEvent_FailedQC_di" bpmnElement="StartEvent_FailedQC">
+        <dc:Bounds x="232" y="272" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="210" y="315" width="80" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="StartEvent_ExpiredItems_di" bpmnElement="StartEvent_ExpiredItems">
+        <dc:Bounds x="232" y="332" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="210" y="375" width="80" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Customer Lane Tasks -->
+      <bpmndi:BPMNShape id="Task_RequestReturn_di" bpmnElement="Task_RequestReturn">
+        <dc:Bounds x="320" y="110" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_PackReturnItems_di" bpmnElement="Task_PackReturnItems">
+        <dc:Bounds x="590" y="110" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_HandOverToDelivery_di" bpmnElement="Task_HandOverToDelivery">
+        <dc:Bounds x="740" y="110" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <!-- Tiki System Lane Tasks -->
+      <bpmndi:BPMNShape id="Gateway_MergeReturnSources_di" bpmnElement="Gateway_MergeReturnSources" isMarkerVisible="true">
+        <dc:Bounds x="325" y="305" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="309" y="362" width="82" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_ValidateReturnRequest_di" bpmnElement="Task_ValidateReturnRequest">
+        <dc:Bounds x="320" y="260" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Gateway_ReturnValid_di" bpmnElement="Gateway_ReturnValid" isMarkerVisible="true">
+        <dc:Bounds x="465" y="275" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="447" y="245" width="86" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_NotifyRejection_di" bpmnElement="Task_NotifyRejection">
+        <dc:Bounds x="560" y="340" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_GenerateReturnCode_di" bpmnElement="Task_GenerateReturnCode">
+        <dc:Bounds x="560" y="260" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_NotifySellerReturn_di" bpmnElement="Task_NotifySellerReturn">
+        <dc:Bounds x="740" y="260" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_UpdateInventory_di" bpmnElement="Task_UpdateInventory">
+        <dc:Bounds x="1310" y="260" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_ProcessRefund_di" bpmnElement="Task_ProcessRefund">
+        <dc:Bounds x="1310" y="340" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="EndEvent_ReturnComplete_di" bpmnElement="EndEvent_ReturnComplete">
+        <dc:Bounds x="1482" y="362" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1456" y="405" width="88" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Warehouse Lane Tasks -->
+      <bpmndi:BPMNShape id="Task_ReceiveReturnFromCustomer_di" bpmnElement="Task_ReceiveReturnFromCustomer">
+        <dc:Bounds x="740" y="445" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_InspectReturnItems_di" bpmnElement="Task_InspectReturnItems">
+        <dc:Bounds x="890" y="445" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Gateway_InspectionResult_di" bpmnElement="Gateway_InspectionResult" isMarkerVisible="true">
+        <dc:Bounds x="1035" y="460" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1017" y="430" width="86" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_ReportDamagedItems_di" bpmnElement="Task_ReportDamagedItems">
+        <dc:Bounds x="1130" y="490" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_PrepareItemsForReturn_di" bpmnElement="Task_PrepareItemsForReturn">
+        <dc:Bounds x="890" y="425" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_DocumentReturnItems_di" bpmnElement="Task_DocumentReturnItems">
+        <dc:Bounds x="1130" y="410" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <!-- Logistics Lane Tasks -->
+      <bpmndi:BPMNShape id="Task_PickUpFromCustomer_di" bpmnElement="Task_PickUpFromCustomer">
+        <dc:Bounds x="740" y="610" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_DeliverToWarehouse_di" bpmnElement="Task_DeliverToWarehouse">
+        <dc:Bounds x="890" y="610" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_PickUpFromWarehouse_di" bpmnElement="Task_PickUpFromWarehouse">
+        <dc:Bounds x="1040" y="610" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_DeliverToSeller_di" bpmnElement="Task_DeliverToSeller">
+        <dc:Bounds x="1190" y="610" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <!-- Seller Lane Tasks -->
+      <bpmndi:BPMNShape id="Task_ReceiveReturnItems_di" bpmnElement="Task_ReceiveReturnItems">
+        <dc:Bounds x="1040" y="770" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Gateway_ReturnItemsCondition_di" bpmnElement="Gateway_ReturnItemsCondition" isMarkerVisible="true">
+        <dc:Bounds x="1175" y="785" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1160" y="842" width="80" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_DisputeReturn_di" bpmnElement="Task_DisputeReturn">
+        <dc:Bounds x="1240" y="830" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_AcceptReturn_di" bpmnElement="Task_AcceptReturn">
+        <dc:Bounds x="1240" y="740" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="Task_ProcessDispute_di" bpmnElement="Task_ProcessDispute">
+        <dc:Bounds x="1380" y="830" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      
+      <bpmndi:BPMNShape id="EndEvent_SellerConfirmed_di" bpmnElement="EndEvent_SellerConfirmed">
+        <dc:Bounds x="1482" y="782" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1455" y="825" width="90" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Sequence Flow Edges -->
+      <bpmndi:BPMNEdge id="Flow_CustomerToRequest_di" bpmnElement="Flow_CustomerToRequest">
+        <di:waypoint x="268" y="150" />
+        <di:waypoint x="320" y="150" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_FailedQCToMerge_di" bpmnElement="Flow_FailedQCToMerge">
+        <di:waypoint x="268" y="290" />
+        <di:waypoint x="292" y="290" />
+        <di:waypoint x="292" y="330" />
+        <di:waypoint x="325" y="330" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_ExpiredToMerge_di" bpmnElement="Flow_ExpiredToMerge">
+        <di:waypoint x="268" y="350" />
+        <di:waypoint x="325" y="350" />
+        <di:waypoint x="325" y="330" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_RequestToValidate_di" bpmnElement="Flow_RequestToValidate">
+        <di:waypoint x="370" y="190" />
+        <di:waypoint x="370" y="260" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_ValidateToGateway_di" bpmnElement="Flow_ValidateToGateway">
+        <di:waypoint x="420" y="300" />
+        <di:waypoint x="465" y="300" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_ValidToGenerate_di" bpmnElement="Flow_ValidToGenerate">
+        <di:waypoint x="515" y="300" />
+        <di:waypoint x="560" y="300" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="530" y="282" width="15" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_InvalidToReject_di" bpmnElement="Flow_InvalidToReject">
+        <di:waypoint x="490" y="325" />
+        <di:waypoint x="490" y="380" />
+        <di:waypoint x="560" y="380" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="514" y="345" width="32" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_GenerateCodeToPack_di" bpmnElement="Flow_GenerateCodeToPack">
+        <di:waypoint x="610" y="260" />
+        <di:waypoint x="610" y="190" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_PackToHandOver_di" bpmnElement="Flow_PackToHandOver">
+        <di:waypoint x="690" y="150" />
+        <di:waypoint x="740" y="150" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_HandOverToPickUp_di" bpmnElement="Flow_HandOverToPickUp">
+        <di:waypoint x="790" y="190" />
+        <di:waypoint x="790" y="610" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_PickUpToDeliver_di" bpmnElement="Flow_PickUpToDeliver">
+        <di:waypoint x="840" y="650" />
+        <di:waypoint x="890" y="650" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_DeliverToReceive_di" bpmnElement="Flow_DeliverToReceive">
+        <di:waypoint x="940" y="610" />
+        <di:waypoint x="940" y="485" />
+        <di:waypoint x="840" y="485" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_ReceiveToInspect_di" bpmnElement="Flow_ReceiveToInspect">
+        <di:waypoint x="840" y="485" />
+        <di:waypoint x="890" y="485" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_InspectToGateway_di" bpmnElement="Flow_InspectToGateway">
+        <di:waypoint x="990" y="485" />
+        <di:waypoint x="1035" y="485" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_InspectionToReport_di" bpmnElement="Flow_InspectionToReport">
+        <di:waypoint x="1060" y="510" />
+        <di:waypoint x="1060" y="530" />
+        <di:waypoint x="1130" y="530" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1072" y="513" width="56" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_InspectionToDocument_di" bpmnElement="Flow_InspectionToDocument">
+        <di:waypoint x="1060" y="460" />
+        <di:waypoint x="1060" y="450" />
+        <di:waypoint x="1130" y="450" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1089" y="438" width="17" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_ReportToDocument_di" bpmnElement="Flow_ReportToDocument">
+        <di:waypoint x="1180" y="490" />
+        <di:waypoint x="1180" y="490" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_DocumentToNotify_di" bpmnElement="Flow_DocumentToNotify">
+        <di:waypoint x="1180" y="410" />
+        <di:waypoint x="1180" y="300" />
+        <di:waypoint x="840" y="300" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_MergeToNotify_di" bpmnElement="Flow_MergeToNotify">
+        <di:waypoint x="375" y="330" />
+        <di:waypoint x="558" y="330" />
+        <di:waypoint x="558" y="300" />
+        <di:waypoint x="740" y="300" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_NotifyToPrepare_di" bpmnElement="Flow_NotifyToPrepare">
+        <di:waypoint x="840" y="300" />
+        <di:waypoint x="865" y="300" />
+        <di:waypoint x="865" y="465" />
+        <di:waypoint x="890" y="465" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_PrepareToPickUp_di" bpmnElement="Flow_PrepareToPickUp">
+        <di:waypoint x="940" y="505" />
+        <di:waypoint x="940" y="558" />
+        <di:waypoint x="1090" y="558" />
+        <di:waypoint x="1090" y="610" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_PickUpToDeliverSeller_di" bpmnElement="Flow_PickUpToDeliverSeller">
+        <di:waypoint x="1140" y="650" />
+        <di:waypoint x="1190" y="650" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_DeliverToReceiveSeller_di" bpmnElement="Flow_DeliverToReceiveSeller">
+        <di:waypoint x="1240" y="690" />
+        <di:waypoint x="1240" y="730" />
+        <di:waypoint x="1090" y="730" />
+        <di:waypoint x="1090" y="770" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_ReceiveToGateway_di" bpmnElement="Flow_ReceiveToGateway">
+        <di:waypoint x="1140" y="810" />
+        <di:waypoint x="1175" y="810" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_GatewayToAccept_di" bpmnElement="Flow_GatewayToAccept">
+        <di:waypoint x="1200" y="785" />
+        <di:waypoint x="1200" y="780" />
+        <di:waypoint x="1240" y="780" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1194" y="763" width="52" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_GatewayToDispute_di" bpmnElement="Flow_GatewayToDispute">
+        <di:waypoint x="1200" y="835" />
+        <di:waypoint x="1200" y="870" />
+        <di:waypoint x="1240" y="870" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1198" y="845" width="44" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_DisputeToProcess_di" bpmnElement="Flow_DisputeToProcess">
+        <di:waypoint x="1340" y="870" />
+        <di:waypoint x="1380" y="870" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_AcceptToUpdate_di" bpmnElement="Flow_AcceptToUpdate">
+        <di:waypoint x="1290" y="740" />
+        <di:waypoint x="1290" y="500" />
+        <di:waypoint x="1360" y="500" />
+        <di:waypoint x="1360" y="340" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_AcceptToConfirm_di" bpmnElement="Flow_AcceptToConfirm">
+        <di:waypoint x="1340" y="780" />
+        <di:waypoint x="1411" y="780" />
+        <di:waypoint x="1411" y="800" />
+        <di:waypoint x="1482" y="800" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_ProcessDisputeToUpdate_di" bpmnElement="Flow_ProcessDisputeToUpdate">
+        <di:waypoint x="1430" y="830" />
+        <di:waypoint x="1430" y="520" />
+        <di:waypoint x="1360" y="520" />
+        <di:waypoint x="1360" y="340" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_ProcessDisputeToConfirm_di" bpmnElement="Flow_ProcessDisputeToConfirm">
+        <di:waypoint x="1480" y="870" />
+        <di:waypoint x="1500" y="870" />
+        <di:waypoint x="1500" y="818" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_UpdateToRefund_di" bpmnElement="Flow_UpdateToRefund">
+        <di:waypoint x="1360" y="340" />
+        <di:waypoint x="1360" y="340" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_RefundToComplete_di" bpmnElement="Flow_RefundToComplete">
+        <di:waypoint x="1410" y="380" />
+        <di:waypoint x="1482" y="380" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
